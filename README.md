@@ -60,6 +60,7 @@ Não é necessário instalar nada separadamente. O release já contém tudo:
 ## ⚙️ Funcionalidades
 
 - 📋 Fila de downloads com progresso em tempo real (velocidade, ETA, tamanho)
+- 📃 Download de playlists e canais inteiros, com subpasta e faixa de itens (ex: 1-10)
 - ⚡ Downloads simultâneos configuráveis (1 a 5)
 - 📁 Pasta de destino personalizada por download
 - 🍪 Suporte a cookies do YouTube (vídeos com restrição de idade)

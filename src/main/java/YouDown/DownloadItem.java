@@ -44,6 +44,16 @@ public class DownloadItem {
     private LocalDateTime completedAt;
     private String savedFilePath;
 
+    // ── Playlist ──
+    private boolean playlist;
+    private boolean createSubfolder;
+    private String playlistRange;
+    private String playlistTitle;
+    private String currentItemTitle;
+    private int playlistIndex;
+    private int playlistTotal;
+    private int failedItems;
+
     public DownloadItem(String url, Format format, String outputDir) {
         this.url = url;
         this.format = format;
@@ -92,6 +102,30 @@ public class DownloadItem {
 
     public String getSavedFilePath() { return savedFilePath; }
     public void setSavedFilePath(String savedFilePath) { this.savedFilePath = savedFilePath; }
+
+    public boolean isPlaylist() { return playlist; }
+    public void setPlaylist(boolean playlist) { this.playlist = playlist; }
+
+    public boolean isCreateSubfolder() { return createSubfolder; }
+    public void setCreateSubfolder(boolean createSubfolder) { this.createSubfolder = createSubfolder; }
+
+    public String getPlaylistRange() { return playlistRange; }
+    public void setPlaylistRange(String playlistRange) { this.playlistRange = playlistRange; }
+
+    public String getPlaylistTitle() { return playlistTitle; }
+    public void setPlaylistTitle(String playlistTitle) { this.playlistTitle = playlistTitle; }
+
+    public String getCurrentItemTitle() { return currentItemTitle; }
+    public void setCurrentItemTitle(String currentItemTitle) { this.currentItemTitle = currentItemTitle; }
+
+    public int getPlaylistIndex() { return playlistIndex; }
+    public void setPlaylistIndex(int playlistIndex) { this.playlistIndex = playlistIndex; }
+
+    public int getPlaylistTotal() { return playlistTotal; }
+    public void setPlaylistTotal(int playlistTotal) { this.playlistTotal = playlistTotal; }
+
+    public int getFailedItems() { return failedItems; }
+    public void incrementFailedItems() { this.failedItems++; }
 
     public String getFormattedAddedAt() {
         return addedAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));

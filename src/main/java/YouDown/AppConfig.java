@@ -19,6 +19,7 @@ public class AppConfig {
     private int maxConcurrentDownloads;
     private boolean darkTheme;
     private String defaultFormat;
+    private boolean playlistSubfolder;
 
     private AppConfig() {
         // Valores padrão
@@ -29,6 +30,7 @@ public class AppConfig {
         maxConcurrentDownloads = 2;
         darkTheme = true;
         defaultFormat = "VIDEO_MP4";
+        playlistSubfolder = true;
         load();
     }
 
@@ -52,6 +54,7 @@ public class AppConfig {
             maxConcurrentDownloads = json.optInt("maxConcurrentDownloads", maxConcurrentDownloads);
             darkTheme = json.optBoolean("darkTheme", darkTheme);
             defaultFormat = json.optString("defaultFormat", defaultFormat);
+            playlistSubfolder = json.optBoolean("playlistSubfolder", playlistSubfolder);
         } catch (Exception e) {
             // usa defaults se falhar
         }
@@ -68,6 +71,7 @@ public class AppConfig {
             json.put("maxConcurrentDownloads", maxConcurrentDownloads);
             json.put("darkTheme", darkTheme);
             json.put("defaultFormat", defaultFormat);
+            json.put("playlistSubfolder", playlistSubfolder);
 
             Files.write(Paths.get(CONFIG_FILE), json.toString(2).getBytes());
         } catch (Exception e) {
@@ -96,4 +100,7 @@ public class AppConfig {
 
     public String getDefaultFormat() { return defaultFormat; }
     public void setDefaultFormat(String v) { this.defaultFormat = v; }
+
+    public boolean isPlaylistSubfolder() { return playlistSubfolder; }
+    public void setPlaylistSubfolder(boolean v) { this.playlistSubfolder = v; }
 }

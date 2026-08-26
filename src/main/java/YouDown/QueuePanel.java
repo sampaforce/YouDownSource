@@ -100,11 +100,11 @@ public class QueuePanel extends JPanel implements DownloadEngine.DownloadListene
                         new EmptyBorder(10, 12, 10, 10)
                 )
         ));
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 110));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, item.isPlaylist() ? 130 : 110));
         card.putClientProperty("JPanel.background", new Color(42, 42, 42));
 
         // ── Coluna esquerda: info ──
-        JLabel titleLabel = new JLabel(item.getTitle());
+        JLabel titleLabel = new JLabel((item.isPlaylist() ? "📃 " : "") + item.getTitle());
         titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 13));
         titleLabel.setForeground(Color.WHITE);
 
@@ -133,6 +133,15 @@ public class QueuePanel extends JPanel implements DownloadEngine.DownloadListene
         JPanel badgeRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
         badgeRow.add(formatBadge);
         badgeRow.add(statusBadge);
+        if (item.isPlaylist() && item.getPlaylistTotal() > 0) {
+            JLabel countBadge = new JLabel("📃 " + item.getPlaylistIndex() + "/" + item.getPlaylistTotal());
+            countBadge.setFont(new Font("Segoe UI", Font.BOLD, 10));
+            countBadge.setForeground(Color.WHITE);
+            countBadge.setOpaque(true);
+            countBadge.setBackground(new Color(120, 90, 190));
+            countBadge.setBorder(new EmptyBorder(2, 6, 2, 6));
+            badgeRow.add(countBadge);
+        }
         if (item.getFileSize() != null && !item.getFileSize().isEmpty() && !item.getFileSize().equals("N/A")) {
             JLabel sizeLabel = new JLabel("📦 " + item.getFileSize());
             sizeLabel.setFont(new Font("Segoe UI", Font.PLAIN, 10));
@@ -184,6 +193,25 @@ public class QueuePanel extends JPanel implements DownloadEngine.DownloadListene
             errLabel.setFont(new Font("Segoe UI", Font.PLAIN, 11));
             infoPanel.add(Box.createVerticalStrut(4));
             infoPanel.add(errLabel);
+        }
+
+        // Vídeo atual da playlist / resumo de itens ignorados
+        if (item.isPlaylist()) {
+            String note = null;
+            if (item.getStatus() == DownloadItem.Status.COMPLETED) {
+                if (item.getFailedItems() > 0) {
+                    note = "<font color='#FFB84D'>⚠ " + item.getFailedItems() +
+                            " item(ns) indisponível(is) foram ignorados</font>";
+                }
+            } else if (item.getCurrentItemTitle() != null) {
+                note = "<font color='#8A8A8A'>▶ " + item.getCurrentItemTitle() + "</font>";
+            }
+            if (note != null) {
+                JLabel noteLabel = new JLabel("<html>" + note + "</html>");
+                noteLabel.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+                infoPanel.add(Box.createVerticalStrut(4));
+                infoPanel.add(noteLabel);
+            }
         }
 
         // ── Coluna direita: botões ──

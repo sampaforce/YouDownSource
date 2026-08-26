@@ -13,6 +13,9 @@ public class DownloadPanel extends JPanel {
     private JTextField outputDirField;
     private JButton downloadBtn;
     private JButton pasteBtn;
+    private JCheckBox playlistCheck;
+    private JCheckBox subfolderCheck;
+    private JTextField playlistRangeField;
 
     public DownloadPanel() {
         setLayout(new BorderLayout());
@@ -47,6 +50,22 @@ public class DownloadPanel extends JPanel {
         JPanel urlRow = new JPanel(new BorderLayout(6, 0));
         urlRow.add(urlField, BorderLayout.CENTER);
         urlRow.add(pasteBtn, BorderLayout.EAST);
+
+        // ── Playlist ──
+        JPanel playlistPanel = buildPlaylistPanel();
+
+        // Marca a opção de playlist automaticamente ao detectar a URL
+        urlField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            private void update() {
+                if (DownloadEngine.isPlaylistUrl(urlField.getText().trim())) {
+                    playlistCheck.setSelected(true);
+                }
+                updatePlaylistControls();
+            }
+            @Override public void insertUpdate(javax.swing.event.DocumentEvent e) { update(); }
+            @Override public void removeUpdate(javax.swing.event.DocumentEvent e) { update(); }
+            @Override public void changedUpdate(javax.swing.event.DocumentEvent e) { update(); }
+        });
 
         // ── Formato ──
         JLabel formatLabel = new JLabel("Formato");
@@ -111,7 +130,8 @@ public class DownloadPanel extends JPanel {
         JTextArea tipsArea = new JTextArea(
                 "💡 Dicas de uso:\n" +
                         "  • Cole a URL de um vídeo, playlist ou canal do YouTube\n" +
-                        "  • Para playlists inteiras, use a URL da playlist\n" +
+                        "  • Playlists são detectadas automaticamente; desmarque para baixar só o vídeo\n" +
+                        "  • Em playlists, itens indisponíveis são ignorados e contabilizados no final\n" +
                         "  • O yt-dlp deve estar instalado e no PATH do sistema\n" +
                         "  • Configure cookies em Configurações para vídeos com restrição de idade"
         );
@@ -140,13 +160,15 @@ public class DownloadPanel extends JPanel {
         formPanel.add(dirLabel);
         formPanel.add(Box.createVerticalStrut(4));
         formPanel.add(dirRow);
+        formPanel.add(Box.createVerticalStrut(12));
+        formPanel.add(playlistPanel);
         formPanel.add(Box.createVerticalStrut(20));
         formPanel.add(downloadBtn);
         formPanel.add(Box.createVerticalStrut(20));
         formPanel.add(tipsArea);
 
         // Fixar largura dos componentes
-        for (Component c : new Component[]{urlRow, formatCombo, dirRow, downloadBtn}) {
+        for (Component c : new Component[]{urlRow, formatCombo, dirRow, playlistPanel, downloadBtn}) {
             ((JComponent)c).setMaximumSize(new Dimension(Integer.MAX_VALUE, c.getPreferredSize().height));
             ((JComponent)c).setAlignmentX(Component.LEFT_ALIGNMENT);
         }
@@ -159,6 +181,57 @@ public class DownloadPanel extends JPanel {
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
 
         add(scrollPane, BorderLayout.CENTER);
+    }
+
+    /**
+     * Bloco de opções de playlist: baixar tudo, subpasta e faixa de itens.
+     */
+    private JPanel buildPlaylistPanel() {
+        playlistCheck = new JCheckBox("📃 Baixar playlist / canal inteiro");
+        playlistCheck.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        playlistCheck.addActionListener(e -> updatePlaylistControls());
+
+        subfolderCheck = new JCheckBox("Criar subpasta com o nome da playlist");
+        subfolderCheck.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        subfolderCheck.setSelected(AppConfig.getInstance().isPlaylistSubfolder());
+
+        JLabel rangeLabel = new JLabel("Itens: ");
+        rangeLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+
+        playlistRangeField = new JTextField();
+        playlistRangeField.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        playlistRangeField.setPreferredSize(new Dimension(160, 30));
+        playlistRangeField.putClientProperty("JTextField.placeholderText",
+                "todos (ex: 1-10, 1,3,5, 5:)");
+
+        JPanel rangeRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        rangeRow.add(rangeLabel);
+        rangeRow.add(playlistRangeField);
+
+        JPanel options = new JPanel();
+        options.setLayout(new BoxLayout(options, BoxLayout.Y_AXIS));
+        options.setBorder(new EmptyBorder(4, 22, 0, 0));
+        subfolderCheck.setAlignmentX(Component.LEFT_ALIGNMENT);
+        rangeRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        options.add(subfolderCheck);
+        options.add(Box.createVerticalStrut(4));
+        options.add(rangeRow);
+
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBorder(new CompoundBorder(
+                BorderFactory.createLineBorder(new Color(55, 55, 55)),
+                new EmptyBorder(10, 12, 10, 12)));
+        panel.add(playlistCheck, BorderLayout.NORTH);
+        panel.add(options, BorderLayout.CENTER);
+
+        updatePlaylistControls();
+        return panel;
+    }
+
+    private void updatePlaylistControls() {
+        boolean on = playlistCheck.isSelected();
+        subfolderCheck.setEnabled(on);
+        playlistRangeField.setEnabled(on);
     }
 
     private void startDownload() {
@@ -194,13 +267,34 @@ public class DownloadPanel extends JPanel {
             }
         }
 
+        boolean isPlaylist = playlistCheck.isSelected();
+        String range = playlistRangeField.getText().trim();
+
+        if (isPlaylist && !range.isEmpty() && !range.matches("[\\d,\\-:\\s]+")) {
+            showError("Faixa de itens inválida.\n\nUse números, vírgulas ou intervalos.\n" +
+                    "Exemplos: 1-10   1,3,5   5:   3-");
+            return;
+        }
+
         DownloadItem.Format format = (DownloadItem.Format) formatCombo.getSelectedItem();
         DownloadItem item = new DownloadItem(url, format, outputDir);
+        item.setPlaylist(isPlaylist);
+        if (isPlaylist) {
+            item.setCreateSubfolder(subfolderCheck.isSelected());
+            item.setPlaylistRange(range);
+            item.setTitle("Obtendo playlist...");
+
+            AppConfig.getInstance().setPlaylistSubfolder(subfolderCheck.isSelected());
+            AppConfig.getInstance().save();
+        }
         DownloadEngine.getInstance().addDownload(item);
 
         urlField.setText("");
         JOptionPane.showMessageDialog(this,
-                "✅ Download adicionado à fila!\n\nAcompanhe o progresso na aba 'Fila de Downloads'.",
+                isPlaylist
+                        ? "✅ Playlist adicionada à fila!\n\nOs vídeos serão baixados em sequência.\n" +
+                          "Acompanhe o progresso na aba 'Fila de Downloads'."
+                        : "✅ Download adicionado à fila!\n\nAcompanhe o progresso na aba 'Fila de Downloads'.",
                 "Adicionado", JOptionPane.INFORMATION_MESSAGE);
     }
 
