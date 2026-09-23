@@ -100,7 +100,6 @@ public class QueuePanel extends JPanel implements DownloadEngine.DownloadListene
                         new EmptyBorder(10, 12, 10, 10)
                 )
         ));
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, item.isPlaylist() ? 130 : 110));
         card.putClientProperty("JPanel.background", new Color(42, 42, 42));
 
         // ── Coluna esquerda: info ──
@@ -188,9 +187,13 @@ public class QueuePanel extends JPanel implements DownloadEngine.DownloadListene
         infoPanel.add(progressBar);
 
         if (item.getStatus() == DownloadItem.Status.ERROR && item.getErrorMessage() != null) {
-            JLabel errLabel = new JLabel("<html><font color='#FF6B6B'>⚠ " +
-                    item.getErrorMessage().replace("\n", "<br>") + "</font></html>");
+            // width fixa força a quebra de linha: sem ela o HTML fica numa
+            // linha só e a mensagem some para fora do card
+            JLabel errLabel = new JLabel("<html><body style='width:520px'>" +
+                    "<font color='#FF6B6B'>⚠ " +
+                    item.getErrorMessage().replace("\n", "<br>") + "</font></body></html>");
             errLabel.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+            errLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
             infoPanel.add(Box.createVerticalStrut(4));
             infoPanel.add(errLabel);
         }
@@ -270,6 +273,8 @@ public class QueuePanel extends JPanel implements DownloadEngine.DownloadListene
 
         card.add(infoPanel, BorderLayout.CENTER);
         card.add(btnPanel, BorderLayout.EAST);
+        // Altura pelo conteúdo: uma mensagem de erro longa precisa caber inteira
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, card.getPreferredSize().height));
         return card;
     }
 

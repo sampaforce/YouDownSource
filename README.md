@@ -61,6 +61,7 @@ Não é necessário instalar nada separadamente. O release já contém tudo:
 
 - 📋 Fila de downloads com progresso em tempo real (velocidade, ETA, tamanho)
 - 📃 Download de playlists e canais inteiros, com subpasta e faixa de itens (ex: 1-10)
+- ⬆ Auto-update do yt-dlp: mantém os downloads funcionando quando o YouTube muda
 - ⚡ Downloads simultâneos configuráveis (1 a 5)
 - 📁 Pasta de destino personalizada por download
 - 🍪 Suporte a cookies do YouTube (vídeos com restrição de idade)

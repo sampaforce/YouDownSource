@@ -31,6 +31,12 @@ public class MainWindow extends JFrame {
         SwingUtilities.invokeLater(() ->
                 FfmpegManager.getInstance().checkOnStartup(this)
         );
+
+        // Mantém o yt-dlp em dia: sem isso o YouTube quebra os downloads
+        // sozinho depois de algumas semanas
+        SwingUtilities.invokeLater(() ->
+                YtdlpUpdater.getInstance().checkOnStartup(this)
+        );
     }
 
     private void buildUI() {

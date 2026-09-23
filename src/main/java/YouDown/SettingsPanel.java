@@ -14,6 +14,10 @@ public class SettingsPanel extends JPanel {
     private JComboBox<Integer> maxDownloadsCombo;
     private JComboBox<String>  defaultFormatCombo;
     private JPanel ffmpegSectionContent;
+    private JButton updateBtn;
+    private JCheckBox autoUpdateCheck;
+    private JComboBox<Integer> autoUpdateDaysCombo;
+    private JLabel lastCheckLabel;
 
     public SettingsPanel() {
         setLayout(new BorderLayout());
@@ -92,25 +96,82 @@ public class SettingsPanel extends JPanel {
         JButton testBtn = new JButton("🔍 Testar");
         testBtn.addActionListener(e -> testYtdlp());
 
+        updateBtn = new JButton("⬆ Atualizar");
+        updateBtn.setToolTipText("Baixa a última versão do yt-dlp (yt-dlp -U)");
+        updateBtn.addActionListener(e -> updateYtdlp());
+
         JPanel btns = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
         btns.add(browseBtn);
         btns.add(testBtn);
+        btns.add(updateBtn);
 
         JPanel row = new JPanel(new BorderLayout(8, 0));
         row.add(new JLabel("Caminho: "), BorderLayout.WEST);
         row.add(ytdlpPathField, BorderLayout.CENTER);
         row.add(btns, BorderLayout.EAST);
 
-        JLabel hint = new JLabel("<html><font color='#888888'>Instale o yt-dlp em " +
-                "https://github.com/yt-dlp/yt-dlp/releases e coloque no PATH, " +
-                "ou informe o caminho completo.</font></html>");
+        // ── Atualização automática ──
+        autoUpdateCheck = new JCheckBox("Manter o yt-dlp atualizado automaticamente");
+        autoUpdateCheck.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        autoUpdateCheck.setToolTipText(
+                "Verifica na abertura do YouDown, respeitando o intervalo abaixo");
+
+        autoUpdateDaysCombo = new JComboBox<>(new Integer[]{1, 3, 7, 15, 30});
+        autoUpdateDaysCombo.setPreferredSize(new Dimension(70, 28));
+
+        JLabel everyLabel = new JLabel("Verificar a cada ");
+        everyLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        JLabel daysLabel = new JLabel(" dia(s)");
+        daysLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+
+        lastCheckLabel = new JLabel();
+        lastCheckLabel.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        lastCheckLabel.setForeground(new Color(136, 136, 136));
+
+        JPanel everyRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        everyRow.add(everyLabel);
+        everyRow.add(autoUpdateDaysCombo);
+        everyRow.add(daysLabel);
+        everyRow.add(Box.createHorizontalStrut(12));
+        everyRow.add(lastCheckLabel);
+
+        autoUpdateCheck.addActionListener(e -> {
+            boolean on = autoUpdateCheck.isSelected();
+            autoUpdateDaysCombo.setEnabled(on);
+            everyLabel.setEnabled(on);
+            daysLabel.setEnabled(on);
+        });
+
+        JPanel autoBox = new JPanel();
+        autoBox.setLayout(new BoxLayout(autoBox, BoxLayout.Y_AXIS));
+        autoBox.setBorder(new EmptyBorder(10, 0, 0, 0));
+        autoUpdateCheck.setAlignmentX(Component.LEFT_ALIGNMENT);
+        everyRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        autoBox.add(autoUpdateCheck);
+        autoBox.add(Box.createVerticalStrut(4));
+        autoBox.add(everyRow);
+
+        JLabel hint = new JLabel("<html><font color='#888888'>O YouTube muda a extração a cada " +
+                "poucas semanas: um yt-dlp antigo causa erro 403 e playlists incompletas.</font></html>");
         hint.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         hint.setBorder(new EmptyBorder(6, 0, 0, 0));
 
+        JPanel sul = new JPanel(new BorderLayout());
+        sul.add(autoBox, BorderLayout.NORTH);
+        sul.add(hint,    BorderLayout.SOUTH);
+
         JPanel p = new JPanel(new BorderLayout());
-        p.add(row,  BorderLayout.CENTER);
-        p.add(hint, BorderLayout.SOUTH);
+        p.add(row, BorderLayout.CENTER);
+        p.add(sul, BorderLayout.SOUTH);
         return p;
+    }
+
+    /** "Última verificação: 08/09/2026 11:57" ou "nunca". */
+    private void refreshLastCheckLabel() {
+        long ts = AppConfig.getInstance().getLastYtdlpCheck();
+        lastCheckLabel.setText("Última verificação: " + (ts <= 0
+                ? "nunca"
+                : new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm").format(new java.util.Date(ts))));
     }
 
     // ── FFmpeg ────────────────────────────────────────────────────────────────
@@ -388,6 +449,10 @@ public class SettingsPanel extends JPanel {
         cookiesPathField.setEnabled(cfg.isUseCookies());
         defaultDirField.setText(cfg.getDefaultDownloadDir());
         maxDownloadsCombo.setSelectedItem(cfg.getMaxConcurrentDownloads());
+        autoUpdateCheck.setSelected(cfg.isAutoUpdateYtdlp());
+        autoUpdateDaysCombo.setSelectedItem(cfg.getAutoUpdateDays());
+        autoUpdateDaysCombo.setEnabled(cfg.isAutoUpdateYtdlp());
+        refreshLastCheckLabel();
 
         String fmtName = cfg.getDefaultFormat();
         DownloadItem.Format[] formats = DownloadItem.Format.values();
@@ -408,6 +473,8 @@ public class SettingsPanel extends JPanel {
         cfg.setMaxConcurrentDownloads((Integer) maxDownloadsCombo.getSelectedItem());
         int idx = defaultFormatCombo.getSelectedIndex();
         cfg.setDefaultFormat(DownloadItem.Format.values()[idx].name());
+        cfg.setAutoUpdateYtdlp(autoUpdateCheck.isSelected());
+        cfg.setAutoUpdateDays((Integer) autoUpdateDaysCombo.getSelectedItem());
         cfg.save();
 
         JOptionPane.showMessageDialog(this,
@@ -417,6 +484,39 @@ public class SettingsPanel extends JPanel {
     }
 
     // ── Testes ────────────────────────────────────────────────────────────────
+
+    /**
+     * A versão do yt-dlp é a data do release (2026.08.19). Passando de ~90 dias
+     * o YouTube já mudou a extração e começam os erros 403 / playlist truncada.
+     */
+    private static String versionWarning(String version) {
+        long dias = YtdlpUpdater.versionAgeDays(version);
+        if (dias > 90) {
+            return "\n\n⚠ Esta versão tem " + dias + " dias.\n" +
+                   "Versões antigas causam erro 403 e playlists incompletas.\n" +
+                   "Clique em Atualizar.";
+        }
+        return "";
+    }
+
+    /**
+     * Atualização manual. O caminho digitado é salvo antes, senão o
+     * YtdlpUpdater usaria o valor antigo do AppConfig.
+     */
+    private void updateYtdlp() {
+        String path = ytdlpPathField.getText().trim();
+        AppConfig.getInstance().setYtdlpPath(path.isEmpty() ? "yt-dlp" : path);
+
+        updateBtn.setEnabled(false);
+        updateBtn.setText("⏳ Atualizando...");
+
+        YtdlpUpdater.getInstance().updateNow(
+                (JFrame) SwingUtilities.getWindowAncestor(this),
+                () -> {
+                    updateBtn.setEnabled(true);
+                    updateBtn.setText("⬆ Atualizar");
+                });
+    }
 
     private void testYtdlp() {
         String path = ytdlpPathField.getText().trim();
@@ -434,9 +534,13 @@ public class SettingsPanel extends JPanel {
             }
             @Override protected void done() {
                 try {
+                    String version = get();
+                    String aviso = versionWarning(version);
                     JOptionPane.showMessageDialog(SettingsPanel.this,
-                            "✅ yt-dlp encontrado!\nVersão: " + get(),
-                            "yt-dlp OK", JOptionPane.INFORMATION_MESSAGE);
+                            "✅ yt-dlp encontrado!\nVersão: " + version + aviso,
+                            "yt-dlp OK",
+                            aviso.isEmpty() ? JOptionPane.INFORMATION_MESSAGE
+                                            : JOptionPane.WARNING_MESSAGE);
                 } catch (Exception e) {
                     JOptionPane.showMessageDialog(SettingsPanel.this,
                             "❌ yt-dlp não encontrado!\n\n" +

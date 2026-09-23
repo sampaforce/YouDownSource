@@ -153,6 +153,45 @@ Regras já consolidadas:
   para o aviso no card.
 - O progresso geral é `((index - 1) * 100 + pct) / total`, limitado a 99%.
 
+## yt-dlp desatualizado é a falha nº 1
+
+O YouTube muda a extração a cada poucas semanas. Um yt-dlp velho não dá erro
+claro: ele falha com mensagens cruas que parecem bug do app. Antes de investigar
+qualquer "não baixa", rode `yt-dlp --version` — a versão **é** a data do release.
+
+Sintomas observados com o binário de 2026.03.17 (175 dias):
+
+- `unable to download video data: HTTP Error 403: Forbidden`
+- `... client https formats require a GVS PO Token`
+- `Requested format is not available` / `The page needs to be reloaded`
+- `No supported JavaScript runtime could be found`
+- playlist truncada e itens falhando em massa (deixando capas `.jpg` órfãs)
+
+Atualizar para 2026.08.19 resolveu todos de uma vez. **Não tente contornar com
+`--extractor-args youtube:player_client=...`**: no teste só `web_embedded`
+passou, e mesmo assim com formatos limitados — é remendo que o YouTube fecha.
+Trocar o runtime JS (`--js-runtimes node`) também não resolveu.
+
+Por isso existe o **`YtdlpUpdater`** (singleton, mesmo padrão do
+`FfmpegManager`), chamado por `MainWindow.checkOnStartup`:
+
+- Roda `yt-dlp -U` em segundo plano na abertura, no máximo a cada
+  `AppConfig.autoUpdateDays` (padrão 7; o intervalo tem piso de 1 dia para não
+  virar verificação a cada abertura). `lastYtdlpCheck` só é gravado quando a
+  verificação termina — falha de rede não "queima" a janela.
+- Silencioso quando não há nada a fazer: só abre diálogo se atualizou, se falhou
+  de um jeito que não é "up to date", ou se o auto-update está **desligado** e o
+  binário passou de 90 dias (aí pergunta se quer atualizar).
+- `didUpdate()`/`isUpToDate()` leem a saída do `-U`. Cuidado: `"up to date"` é
+  substring de várias linhas — não troque por `contains("date")`.
+- `awaitIdle()` + a flag `updating` seguram o início de um download enquanto o
+  `.exe` está sendo substituído; `DownloadEngine.executeDownload` chama isso
+  antes de montar o processo. Sem isso, baixar durante a troca dá erro confuso.
+
+Complementam: o botão **⬆ Atualizar** e o `versionWarning()` (aviso acima de 90
+dias no botão Testar) em `SettingsPanel`; e o `updateHint()` do `DownloadEngine`,
+que anexa a orientação à mensagem de erro quando ela casa com os sintomas acima.
+
 ## Cuidados
 
 - Cada download roda um processo externo; `cancelDownload` usa

@@ -68,6 +68,10 @@ public class DownloadEngine {
         // das imagens que o usuário já tinha na pasta
         long startedAt = System.currentTimeMillis();
         try {
+            // O auto-update pode estar trocando o yt-dlp.exe neste instante:
+            // chamá-lo no meio da substituição daria um erro sem sentido
+            YtdlpUpdater.getInstance().awaitIdle(120_000);
+
             item.setStatus(DownloadItem.Status.DOWNLOADING);
             notifyStatusChange(item);
 
@@ -102,12 +106,13 @@ public class DownloadEngine {
                     item.setCompletedAt(java.time.LocalDateTime.now());
                 } else {
                     item.setStatus(DownloadItem.Status.ERROR);
-                    if (item.getErrorMessage() == null) {
-                        item.setErrorMessage(item.isPlaylist() && item.getFailedItems() > 0
-                                ? "Nenhum item da playlist pôde ser baixado (" +
-                                  item.getFailedItems() + " falha(s)).\n" +
-                                  "Playlists privadas exigem cookies — configure em Configurações."
-                                : "yt-dlp retornou código de erro: " + exitCode);
+                    if (item.isPlaylist() && item.getFailedItems() > 0) {
+                        String cause = item.getErrorMessage();
+                        item.setErrorMessage("Nenhum item da playlist pôde ser baixado ("
+                                + item.getFailedItems() + " falha(s))."
+                                + (cause != null ? "\n\nPrimeiro erro: " + cause : ""));
+                    } else if (item.getErrorMessage() == null) {
+                        item.setErrorMessage("yt-dlp retornou código de erro: " + exitCode);
                     }
                 }
                 notifyStatusChange(item);
@@ -461,12 +466,30 @@ public class DownloadEngine {
         if (line.startsWith("ERROR:")) {
             // Numa playlist um item com erro é apenas contabilizado:
             // o --ignore-errors mantém o restante da fila rodando
+            String msg = line.replace("ERROR:", "").trim();
             if (item.isPlaylist()) {
                 item.incrementFailedItems();
+                if (item.getErrorMessage() == null) item.setErrorMessage(msg + updateHint(msg));
             } else {
-                item.setErrorMessage(line.replace("ERROR:", "").trim());
+                item.setErrorMessage(msg + updateHint(msg));
             }
         }
+    }
+
+    /**
+     * O YouTube muda a extração com frequência e um yt-dlp velho falha sempre
+     * com as mesmas mensagens cruas ("HTTP Error 403"), que não dizem ao
+     * usuário o que fazer. Traduz esses casos em ação.
+     */
+    private static String updateHint(String msg) {
+        String m = msg.toLowerCase();
+        if (m.contains("403") || m.contains("po token") || m.contains("nsig")
+                || m.contains("format is not available") || m.contains("needs to be reloaded")
+                || m.contains("js runtime") || m.contains("unable to download video data")) {
+            return "\n\n➜ Causa provável: yt-dlp desatualizado."
+                    + "\n   Abra Configurações → yt-dlp → Atualizar.";
+        }
+        return "";
     }
 
     private static boolean isImageFile(String path) {

@@ -20,6 +20,9 @@ public class AppConfig {
     private boolean darkTheme;
     private String defaultFormat;
     private boolean playlistSubfolder;
+    private boolean autoUpdateYtdlp;
+    private int autoUpdateDays;
+    private long lastYtdlpCheck;
 
     private AppConfig() {
         // Valores padrão
@@ -31,6 +34,9 @@ public class AppConfig {
         darkTheme = true;
         defaultFormat = "VIDEO_MP4";
         playlistSubfolder = true;
+        autoUpdateYtdlp = true;
+        autoUpdateDays = 7;   // verifica no maximo 1x por semana
+        lastYtdlpCheck = 0L;
         load();
     }
 
@@ -55,6 +61,9 @@ public class AppConfig {
             darkTheme = json.optBoolean("darkTheme", darkTheme);
             defaultFormat = json.optString("defaultFormat", defaultFormat);
             playlistSubfolder = json.optBoolean("playlistSubfolder", playlistSubfolder);
+            autoUpdateYtdlp = json.optBoolean("autoUpdateYtdlp", autoUpdateYtdlp);
+            autoUpdateDays = json.optInt("autoUpdateDays", autoUpdateDays);
+            lastYtdlpCheck = json.optLong("lastYtdlpCheck", lastYtdlpCheck);
         } catch (Exception e) {
             // usa defaults se falhar
         }
@@ -72,6 +81,9 @@ public class AppConfig {
             json.put("darkTheme", darkTheme);
             json.put("defaultFormat", defaultFormat);
             json.put("playlistSubfolder", playlistSubfolder);
+            json.put("autoUpdateYtdlp", autoUpdateYtdlp);
+            json.put("autoUpdateDays", autoUpdateDays);
+            json.put("lastYtdlpCheck", lastYtdlpCheck);
 
             Files.write(Paths.get(CONFIG_FILE), json.toString(2).getBytes());
         } catch (Exception e) {
@@ -103,4 +115,13 @@ public class AppConfig {
 
     public boolean isPlaylistSubfolder() { return playlistSubfolder; }
     public void setPlaylistSubfolder(boolean v) { this.playlistSubfolder = v; }
+
+    public boolean isAutoUpdateYtdlp() { return autoUpdateYtdlp; }
+    public void setAutoUpdateYtdlp(boolean v) { this.autoUpdateYtdlp = v; }
+
+    public int getAutoUpdateDays() { return autoUpdateDays; }
+    public void setAutoUpdateDays(int v) { this.autoUpdateDays = v; }
+
+    public long getLastYtdlpCheck() { return lastYtdlpCheck; }
+    public void setLastYtdlpCheck(long v) { this.lastYtdlpCheck = v; }
 }
